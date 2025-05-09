@@ -1,0 +1,4 @@
+python-telegram-bot[job-queue]>=20.0  # For Telegram bot interaction and periodic jobs
+PyYAML>=6.0                         # For reading YAML config
+openai>=1.0.0                       # For OpenAI compatible backends
+tiktoken>=0.5.0                     # For accurate token counting (recommended)
