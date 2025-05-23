@@ -39,11 +39,7 @@ Mint is a Telegram bot designed for group chats, providing AI-powered conversati
     ```
 
 4.  Configure the Bot:
-    *   Copy `config.yaml.example` to `config.yaml`.
-    *   Copy `system_prompt.txt.example` to `system_prompt.txt`.
-    *   Copy `known_users.yaml.example` to `known_users.yaml` (can be left empty initially).
-
-    Edit `config.yaml` and fill in your details:
+    Create and edit `config/config.yaml` and fill in your details:
     *   `telegram_bot_token`: Your Telegram Bot token.
     *   `openai_api_url`: The URL for your OpenAI-compatible backend.
     *   `openai_api_key`: Your API key for the backend.
@@ -53,10 +49,10 @@ Mint is a Telegram bot designed for group chats, providing AI-powered conversati
     *   Other parameters like `temperature`, `context_window_tokens`, etc.
 
 5.  Customize System Prompt:
-    Edit `system_prompt.txt` to define the bot's persona, rules, and instructions for interacting with users and using tools.
+    Create and edit `config/system_prompt.txt` to define the bot's persona, rules, and instructions for interacting with users and using tools.
 
 6.  (Optional) Pre-populate Known Users:
-    Edit `known_users.yaml` if you want to provide initial information about some users. The format is:
+    Create and edit `data/known_users.yaml` if you want to provide initial information about some users. The format is:
     ```yaml
     # UserID (integer):
     #   description: "A short description of the user."

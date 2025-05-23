@@ -9,7 +9,7 @@ from typing import Dict, List, Tuple, Optional, Any # Added Any
 from config_loader import config
 from ai_handler import count_tokens, count_message_tokens
 
-DEFAULT_CHAT_HISTORY_FILE = "chat_histories.json"
+DEFAULT_CHAT_HISTORY_FILE = "data/chat_histories.json"
 
 logger = logging.getLogger(__name__)
 

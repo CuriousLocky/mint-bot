@@ -4,8 +4,10 @@ import os
 import logging
 from typing import Dict, Any, Optional, List
 
-DEFAULT_CONFIG_PATH = "config.yaml"
+DEFAULT_CONFIG_PATH = "config/config.yaml"
 CONFIG_ENV_VAR = "APP_CONFIG_PATH"
+DEFAULT_KNOWN_USERS_PATH = "data/known_users.yaml" # New
+DEFAULT_SYSTEM_PROMPT_PATH = "config/system_prompt.txt"
 
 logger = logging.getLogger(__name__)
 
@@ -77,19 +79,6 @@ class Config:
         if not self.openai_api_key: # API key might be optional for some local backends
             logger.warning("openai_api_key is missing in config. This might be intended for some backends.")
 
-# config_loader.py
-import yaml
-import os
-import logging
-from typing import Dict, Any
-
-DEFAULT_CONFIG_PATH = "config.yaml"
-CONFIG_ENV_VAR = "APP_CONFIG_PATH"
-DEFAULT_KNOWN_USERS_PATH = "known_users.yaml" # New
-
-logger = logging.getLogger(__name__)
-
-# ... (Config class remains the same) ...
 # Global config instance
 try:
     config = Config()
@@ -97,7 +86,7 @@ except Exception as e:
     logger.critical(f"Failed to initialize configuration: {e}")
     config = None
 
-def load_system_prompt(file_path="system_prompt.txt") -> str: # Added return type hint
+def load_system_prompt(file_path=DEFAULT_SYSTEM_PROMPT_PATH) -> str: # Added return type hint
     try:
         with open(file_path, 'r', encoding='utf-8') as f:
             return f.read().strip()
