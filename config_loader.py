@@ -64,7 +64,7 @@ class Config:
             logger.info(f"Bot operations will be restricted to chat IDs: {self.allowed_chat_ids}")
         # --- End Load Allowed Chat IDs ---
         
-                # --- Load Console Interface Setting ---
+        # --- Load Console Interface Setting ---
         self.enable_console_interface: bool = self.data.get("enable_console_interface", False) # Default to False
         if not isinstance(self.enable_console_interface, bool):
             logger.warning(
@@ -73,6 +73,39 @@ class Config:
             self.enable_console_interface = False
         logger.info(f"Console interface enabled: {self.enable_console_interface}")
         # --- End Load Console Interface Setting ---
+        
+        # --- Load Image Saving Settings ---
+        self.save_images_from_user_ids: List[int] = self.data.get("save_images_from_user_ids", [])
+        self.image_save_path: str = self.data.get("image_save_path", "data/images") # Default path
+
+        # Validate save_images_from_user_ids
+        if not isinstance(self.save_images_from_user_ids, list):
+            logger.warning(
+                f"'save_images_from_user_ids' in {path} is not a list. Defaulting to an empty list."
+            )
+            self.save_images_from_user_ids = []
+        else:
+            try:
+                self.save_images_from_user_ids = [int(uid) for uid in self.save_images_from_user_ids]
+            except ValueError:
+                logger.error(
+                    f"'save_images_from_user_ids' in {path} contains non-integer values. "
+                    "Defaulting to an empty list. Please ensure all user IDs are integers."
+                )
+                self.save_images_from_user_ids = []
+
+        if self.save_images_from_user_ids:
+            logger.info(f"Bot will save images from user IDs: {self.save_images_from_user_ids}")
+            # Ensure the image save directory exists
+            try:
+                os.makedirs(self.image_save_path, exist_ok=True)
+                logger.info(f"Image save directory set to: {self.image_save_path}")
+            except OSError as e:
+                logger.error(f"Could not create image save directory {self.image_save_path}: {e}")
+                # Potentially raise an error or disable the feature if directory can't be made
+        else:
+            logger.info("No user IDs configured for saving images.")
+        # --- End Load Image Saving Settings ---
 
         if not self.telegram_bot_token:
             raise ValueError("telegram_bot_token is missing in config.")

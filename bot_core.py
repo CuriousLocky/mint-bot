@@ -1,4 +1,6 @@
 # bot_core.py
+import os, time
+from datetime import datetime
 from functools import wraps
 import logging
 from typing import Optional
@@ -52,6 +54,7 @@ def restricted_to_allowed_chats(func):
         return await func(update, context, *args, **kwargs)
     return wrapped
 
+
 def is_chat_allowed(chat_id: int) -> bool:
     """Helper to check if a specific chat_id is in the whitelist."""
     if not config.allowed_chat_ids: # If list is empty, no chat is allowed
@@ -59,9 +62,67 @@ def is_chat_allowed(chat_id: int) -> bool:
     return chat_id in config.allowed_chat_ids
 # --- End Whitelist Check ---
 
+
 async def id_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     await update.message.reply_text(f"This chat's ID is: {update.message.chat_id}")
 # Add to application: application.add_handler(CommandHandler("id", id_command))
+
+
+@restricted_to_allowed_chats
+async def handle_user_image(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
+    if not update.message or not update.message.photo or not update.message.from_user:
+        return
+
+    user_id = update.message.from_user.id
+
+    if config.save_images_from_user_ids and user_id in config.save_images_from_user_ids:
+        logger.info(f"User {user_id} (in save list) sent an image in chat {update.effective_chat.id}.")
+        try:
+            photo_file_obj = update.message.photo[-1]
+            bot_file = await photo_file_obj.get_file()
+
+            image_dir = config.image_save_path
+            os.makedirs(image_dir, exist_ok=True)
+
+            # Get current time for human-readable format
+            current_dt = datetime.now()
+            formatted_time_str = current_dt.strftime("%Y%m%d-%H%M%S") # e.g., 20231027-153045
+
+            file_extension = 'jpg' # Default extension
+            if bot_file.file_path:
+                original_extension = bot_file.file_path.split('.')[-1]
+                if len(original_extension) <= 4 and original_extension.isalnum(): # Basic check
+                    file_extension = original_extension.lower()
+            
+            # Base part of the filename without suffix
+            base_filename_part = f"{user_id}_{formatted_time_str}"
+            
+            # Find a unique filename by appending a suffix if needed
+            counter = 0
+            while True:
+                if counter == 0:
+                    file_name = f"{base_filename_part}.{file_extension}"
+                else:
+                    file_name = f"{base_filename_part}_{counter}.{file_extension}"
+                
+                full_file_path = os.path.join(image_dir, file_name)
+                
+                if not os.path.exists(full_file_path):
+                    break # Found a unique filename
+                counter += 1
+                if counter > 100: # Safety break to prevent infinite loop in extreme cases
+                    logger.error(f"Could not find a unique filename for {base_filename_part} after 100 attempts. Aborting save.")
+                    # Optionally, notify user or raise an exception
+                    return 
+
+            await bot_file.download_to_drive(custom_path=full_file_path)
+            logger.info(f"Saved image from user {user_id} to {full_file_path}")
+
+        except Exception as e:
+            logger.error(f"Error saving image from user {user_id}: {e}", exc_info=True)
+    else:
+        if update.message.photo:
+             logger.debug(f"Received image from user {user_id} in chat {update.effective_chat.id}, but user not in save_images_from_user_ids or list is empty.")
 
 
 @restricted_to_allowed_chats # Apply decorator
@@ -110,6 +171,7 @@ async def mint_command(update: Update, context: ContextTypes.DEFAULT_TYPE) -> No
             "Sorry, I couldn't get a response from the AI.",
             reply_to_message_id=user_message_id
         )
+
 
 async def handle_reply_to_bot(update: Update, context: ContextTypes.DEFAULT_TYPE) -> None:
     if not is_chat_allowed(update.message.chat_id): # Whitelist check
@@ -207,15 +269,62 @@ async def handle_reply_to_bot(update: Update, context: ContextTypes.DEFAULT_TYPE
             reply_to_message_id=current_user_message_id
         )
 
+
 async def error_handler(update: object, context: ContextTypes.DEFAULT_TYPE) -> None:
     """Log Errors caused by Updates."""
     logger.error(f"Update {update} caused error {context.error}", exc_info=context.error)
 
 
+def cleanup_old_images() -> None:
+    logger.info("Running periodic cleanup job for old images.")
+    image_dir = config.image_save_path
+    
+    if not os.path.exists(image_dir):
+        logger.debug(f"Image directory {image_dir} not found. Skipping image cleanup.")
+        return
+
+    if not config.save_images_from_user_ids:
+        logger.debug("Image saving feature not configured. Skipping image cleanup.")
+        return
+
+    now = time.time()
+    expiry_seconds = config.chat_history_expiry_days * 24 * 60 * 60
+    
+    deleted_count = 0
+    for filename in os.listdir(image_dir):
+        file_path = os.path.join(image_dir, filename)
+        if os.path.isfile(file_path):
+            try:
+                # Use file's last modification time for expiry check
+                file_mod_time = os.path.getmtime(file_path)
+                
+                if (now - file_mod_time) > expiry_seconds:
+                    os.remove(file_path)
+                    logger.info(f"Deleted old image (by mtime): {file_path}")
+                    deleted_count += 1
+            except OSError as e: # Handles errors from getmtime or remove
+                logger.error(f"Error processing or deleting image file '{file_path}': {e}")
+    
+    if deleted_count > 0:
+        logger.info(f"Cleaned up {deleted_count} old images.")
+    else:
+        logger.info("No old images found to clean up based on modification time.")
+
+
 async def cleanup_job_callback(context: ContextTypes.DEFAULT_TYPE):
-    """Periodically cleans up expired chat histories."""
-    logger.info("Running periodic cleanup job for chat histories.")
-    chat_manager.cleanup_expired_chats()
+    """Periodically cleans up expired chat histories and old images."""
+    logger.info("Running periodic cleanup job...") # General message
+    
+    # Cleanup chat histories (existing functionality)
+    if chat_manager: # Ensure chat_manager is available
+        logger.info("Cleaning up expired chat histories.")
+        chat_manager.cleanup_expired_chats()
+    else:
+        logger.warning("Chat manager not available for cleanup_job_callback.")
+        
+    # Cleanup old images (new functionality)
+    cleanup_old_images() # This is a synchronous function
+    logger.info("Periodic cleanup job finished.")
 
 
 # Optional: Add a command to reload known users if you modify the file manually
@@ -247,11 +356,12 @@ def run_bot(application: Application):
     
     # ... (add handlers as before) ...
     application.add_handler(CommandHandler("mint", mint_command))
-    application.add_handler(CommandHandler("reloadusers", reload_users_command))
+    # application.add_handler(CommandHandler("reloadusers", reload_users_command))
     application.add_handler(MessageHandler(
         filters.REPLY & filters.TEXT & ~filters.COMMAND,
         handle_reply_to_bot
     ))
+    application.add_handler(MessageHandler(filters.PHOTO & ~filters.COMMAND, handle_user_image))
 
     application.add_error_handler(error_handler)
     job_queue: JobQueue = application.job_queue

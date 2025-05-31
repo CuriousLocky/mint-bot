@@ -11,6 +11,9 @@ Mint is a Telegram bot designed for group chats, providing AI-powered conversati
     * Automatically clears inactive chat histories
 * User Recognition & Personalization: Learn and update information about users
 * Console Control (Optional): Manually send messages to designated chat
+* Save Images from Certain Users:
+    * In case you also hate it when someone always edits or deletes images after sending them
+    * Automatically clears with same expiration period as chat history
 
 
 ## Prerequisites
